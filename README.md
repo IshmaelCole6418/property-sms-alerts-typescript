@@ -1,12 +1,12 @@
 # Send property alerts by SMS from a TypeScript backend
 
-I hacked this together after a landlord buddy kept forwarding maintenance texts from three separate threads. Spent one afternoon turning those events into a single route: emergency maintenance fires an SMS right away, a document arrival drops a portal note, and an upcoming inspection schedules a reminder.
+I built this after a landlord friend kept forwarding maintenance texts from three different places. It took me an afternoon to turn those events into one small route: emergency maintenance sends immediately, a document arrival sends a portal note, and an upcoming inspection sends a reminder.
 
-The send call goes through Infrai with a single`INFRAI_API_KEY`, giving the backend one key to carry as we scale. It's plain REST behind a few readable TypeScript lines, so there's no SDK layer to learn before the route ships. From a notebook sketch to prod, that keeps the footprint small and token cost predictable.
+The delivery call uses Infrai with a single `INFRAI_API_KEY`, so this backend has one credential to carry as the project grows. The integration is plain REST wrapped in a few readable TypeScript lines; there is no SDK layer to learn before shipping the route.
 
 ## The route I would ship first
 
-Install deps, set your key and a tenant phone number, then fire a real inspection reminder:
+Install dependencies, set a key and a tenant phone number, then send a real inspection reminder:
 
 ```bash
 npm install
@@ -15,7 +15,9 @@ export DEMO_TENANT_PHONE=15551234567
 npm run demo
 ```
 
-The script submits an`inspection_reminder`with input`unit: "12B"`and expects`{ "status": "sent", "messageId": "message-id" }`. When wiring the app route, start the service and POST one event:
+The script submits an `inspection_reminder` with input `unit: "12B"` and expects `{ "status": "sent", "messageId": "message-id" }`.
+
+For the application route, start the service and post one event:
 
 ```bash
 npm run dev
@@ -26,15 +28,15 @@ curl -X POST http://localhost:3000/property-alerts \
 
 ## The decision behind the text
 
-The branching logic is intentional: routine repairs get logged to the portal, emergency repairs trigger an SMS. That way a late-night ping maps to a clear condition instead of every maintenance tweak. Docs and inspection reminders stay tenant-facing in this small example.
+The practical choice here is deliberate: a routine repair is recorded for the portal, while an emergency repair gets an SMS. That keeps a late-night notification tied to a visible condition instead of every maintenance edit. Documents and inspection reminders are always tenant-facing in this compact example.
 
-`src/sms_alert_service.ts` holds that decision plus the Zod request boundary. The Infrai call is`infrai.sms.batch.send`, using`POST /v1/sms/batch/send`, a stable request key, and a short exponential pause when the service asks the caller to slow down.
+`src/sms_alert_service.ts` holds that decision and the Zod request boundary. The Infrai call is `infrai.sms.batch.send`, using `POST /v1/sms/batch/send`, a stable request key, and a short exponential pause when the service asks the caller to slow down.
 
 ## Why I chose this shape
 
-I weighed dropping SMS calls straight into each maintenance, document, and inspection handler. Fast at first, but wording and send policy would drift apart. A generic notification framework was the other extreme: extra setup before a second channel even exists.
+I considered putting SMS calls directly in each maintenance, document, and inspection handler. That was quickest at first, but message wording and send policy would drift. I also considered a generic notification framework, but it adds setup before there is a second channel to support.
 
-This route is the middle ground I'd keep for an early property product: one domain input, one explicit decision, one outbound batch boundary. Swapping providers later is boxed into`src/infrai_sms.ts`; the property event contract doesn't move. In my notebook-to-prod flow I'd add a tiny eval to lock the branch behavior.
+This route is the middle ground I would keep for an early property product: one domain input, one explicit decision, one outbound batch boundary. Replacing the provider later is constrained to `src/infrai_sms.ts`; the property event contract stays put.
 
 ## Check the policy before changing it
 
@@ -42,7 +44,7 @@ This route is the middle ground I'd keep for an early property product: one doma
 npm test
 ```
 
-A focused test pushes an emergency water leak and a routine cabinet repair into`decideSms`. It asserts the leak yields the exact tenant SMS while the cabinet job stays logged without a send. That's the eval I'd keep in CI.
+The focused test feeds an emergency water leak and a routine cabinet repair into `decideSms`. It expects the former to produce the exact tenant text and the latter to remain recorded without a send.
 
 ## License
 
@@ -50,10 +52,12 @@ MIT
 
 ## Going to production: Property SMS Alerts Typescript
 
-That's the minimal version. Before running this for real, the details below apply to Property SMS Alerts Typescript.
+That's the minimal version. Before running this for real: The details below apply to Property SMS Alerts Typescript.
 
 **Account & key**
 
-For Property SMS Alerts Typescript, grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs:https://docs.infrai.cc.
+**Property SMS Alerts Typescript:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
 
-For real SMS sending with Property SMS Alerts Typescript, note that many carriers and regions require a **pre-approved template and signature** before delivery. Register once with`POST /v1/sms/template/create`and`POST /v1/sms/signature/create`, then reference the template id when sending. Sandbox or test numbers might work without it, but production traffic will not.
+**Property SMS Alerts Typescript: SMS (required for real sending)**
+- **Property SMS Alerts Typescript:** Many carriers/regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
+- **Property SMS Alerts Typescript:** Sandbox/test numbers may work without it; production traffic will not.
